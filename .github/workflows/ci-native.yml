@@ -9,28 +9,23 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    container: python:2.7-slim
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
+      - name: Install system tools and dependencies
         run: |
-          python -m pip install --upgrade pip "setuptools<70" wheel
-          pip install --break-system-packages -r requirements.txt
+          apt-get update && apt-get install -y --no-install-recommends curl
+          python -m pip install --upgrade "pip<21.0" "setuptools<45" "wheel<0.38"
+          pip install -r requirements.txt
 
       - name: Check Python syntax
         run: |
-          python -m py_compile $(find . -maxdepth 3 -name "*.py")
+          python -m compileall -q .
 
       - name: Initialize SQLite database
-        env:
-          FLASK_APP: manage.py
         run: |
           python -c "import sqlite3; conn = sqlite3.connect('app.db'); conn.close()"
           if [ -f manage.py ]; then
@@ -38,13 +33,11 @@ jobs:
           fi
 
       - name: Smoke test Flask server
-        env:
-          FLASK_APP: manage.py
         run: |
           if [ -f manage.py ]; then
             nohup python manage.py runserver -h 127.0.0.1 -p 5000 > flask.log 2>&1 &
           else
-            nohup flask run --host=127.0.0.1 --port=5000 > flask.log 2>&1 &
+            nohup python -m flask run --host=127.0.0.1 --port=5000 > flask.log 2>&1 &
           fi
           SERVER_PID=$!
           sleep 3

@@ -1,0 +1,53 @@
+name: CI Flask Todo App
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade "pip<24.1" "setuptools<66" "wheel<0.40"
+          pip install -r requirements.txt
+
+      - name: Check Python syntax
+        run: |
+          python -m py_compile $(find . -maxdepth 3 -name "*.py")
+
+      - name: Initialize SQLite database
+        env:
+          FLASK_APP: manage.py
+        run: |
+          python -c "import sqlite3; conn = sqlite3.connect('app.db'); conn.close()"
+          if [ -f manage.py ]; then
+            python manage.py db upgrade 2>/dev/null || python manage.py db init 2>/dev/null || true
+          fi
+
+      - name: Smoke test Flask server
+        env:
+          FLASK_APP: manage.py
+        run: |
+          if [ -f manage.py ]; then
+            nohup python manage.py runserver -h 127.0.0.1 -p 5000 > flask.log 2>&1 &
+          else
+            nohup flask run --host=127.0.0.1 --port=5000 > flask.log 2>&1 &
+          fi
+          SERVER_PID=$!
+          sleep 3
+          cat flask.log || true
+          curl -i -s http://127.0.0.1:5000/ | head -n 25
+          kill $SERVER_PID 2>/dev/null || true

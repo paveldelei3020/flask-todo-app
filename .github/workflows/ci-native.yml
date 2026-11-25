@@ -17,12 +17,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.8"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip<24.1" "setuptools<66" "wheel<0.40"
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip "setuptools<70" wheel
+          pip install --break-system-packages -r requirements.txt
 
       - name: Check Python syntax
         run: |
